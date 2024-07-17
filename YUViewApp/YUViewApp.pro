@@ -5,6 +5,10 @@ TEMPLATE = app
 CONFIG += c++17
 CONFIG -= debug_and_release
 
+QMAKE_CXXFLAGS += "-g -fsanitize=address -fno-omit-frame-pointer -O1 -fsanitize=undefined"
+QMAKE_CFLAGS += "-g -fsanitize=address -fno-omit-frame-pointer -O1 -fsanitize=undefined"
+QMAKE_LFLAGS += "-fsanitize=address -fsanitize=undefined"
+
 SOURCES += $$files(src/*.cpp, false)
 HEADERS += $$files(src/*.h, false)
 
