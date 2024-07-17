@@ -15,3 +15,6 @@ YUView.pro.user
 /decoders
 .vscode
 issues
+*.o
+ui_*.h
+moc_*.cpp
