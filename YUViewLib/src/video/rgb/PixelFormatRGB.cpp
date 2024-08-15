@@ -48,9 +48,10 @@ PixelFormatRGB::PixelFormatRGB(unsigned     bitsPerSample,
                                DataLayout   dataLayout,
                                ChannelOrder channelOrder,
                                AlphaMode    alphaMode,
-                               Endianness   endianness)
+                               Endianness   endianness,
+                               bool         floatType)
     : bitsPerSample(bitsPerSample), dataLayout(dataLayout), channelOrder(channelOrder),
-      alphaMode(alphaMode), endianness(endianness)
+      alphaMode(alphaMode), endianness(endianness), floatType(floatType)
 {
 }
 
@@ -58,6 +59,9 @@ PixelFormatRGB::PixelFormatRGB(const std::string &name)
 {
   if (name != "Unknown Pixel Format")
   {
+    if (name.rfind(" Float") != std::string::npos && name.rfind(" Float") == name.length() - strlen(" Float")) {
+      this->floatType = true;
+    }
     auto channelOrderString = name.substr(0, 3);
     if (name[0] == 'a' || name[0] == 'A')
     {
@@ -85,6 +89,9 @@ PixelFormatRGB::PixelFormatRGB(const std::string &name)
 
 bool PixelFormatRGB::isValid() const
 {
+  if (floatType) {
+    return this->bitsPerSample == 32;
+  }
   return this->bitsPerSample >= 8 && this->bitsPerSample <= 16;
 }
 
@@ -115,6 +122,8 @@ std::string PixelFormatRGB::getName() const
     name += " planar";
   if (this->bitsPerSample > 8 && this->endianness == Endianness::Big)
     name += " BE";
+  if (this->floatType)
+    name += " Float";
 
   return name;
 }
@@ -123,7 +132,8 @@ std::string PixelFormatRGB::getName() const
  */
 std::size_t PixelFormatRGB::bytesPerFrame(Size frameSize) const
 {
-  auto bpsValid = this->bitsPerSample >= 8 && this->bitsPerSample <= 16;
+  auto bpsValid = (!this->floatType && this->bitsPerSample >= 8 && this->bitsPerSample <= 16) 
+    || (this->floatType && this->bitsPerSample == 32);
   if (!bpsValid || !frameSize.isValid())
     return 0;
 

@@ -90,6 +90,16 @@
     </widget>
    </item>
    <item>
+    <widget class="QCheckBox" name="floatCheckBox">
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Float&lt;/span&gt;: Is float type or not&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Non planar&lt;/span&gt;: All components of each pixel are collocated in the file. The file is organized by pixels. (E.g.: RGBRGBRGBRGB)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="text">
+      <string>Float</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="alphaChannelGroupBox">
      <property name="title">
       <string>Alpha Channel</string>

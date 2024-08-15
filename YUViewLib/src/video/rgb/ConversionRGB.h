@@ -35,6 +35,7 @@
 #include <video/rgb/PixelFormatRGB.h>
 
 #include <QByteArray>
+#include <array>
 
 namespace video::rgb
 {
@@ -48,6 +49,15 @@ void convertInputRGBToARGB(const QByteArray &    sourceBuffer,
                            const bool            limitedRange,
                            const bool            convertAlpha,
                            const bool            premultiplyAlpha);
+
+void convertRGBFloatToARGB(const QByteArray &    sourceBuffer,
+                      const PixelFormatRGB &srcPixelFormat,
+                      unsigned char *       targetBuffer,
+                      const Size            frameSize,
+                      const bool            componentInvert[4],
+                      const int             componentScale[4],
+                      std::array<Channel,3>          destRgb
+                      );
 
 void convertSinglePlaneOfRGBToGreyscaleARGB(const QByteArray &    sourceBuffer,
                                             const PixelFormatRGB &srcPixelFormat,

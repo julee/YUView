@@ -55,7 +55,10 @@ const auto componentShowMapper =
                                       {ComponentDisplayMode::R, "R", "Red Only"},
                                       {ComponentDisplayMode::G, "G", "Green Only"},
                                       {ComponentDisplayMode::B, "B", "Blue Only"},
-                                      {ComponentDisplayMode::A, "A", "Alpha Only"}});
+                                      {ComponentDisplayMode::A, "A", "Alpha Only"},
+                                      {ComponentDisplayMode::RG0, "RG0", "RG=RG B=0 (RGBA Float only)"},
+                                      {ComponentDisplayMode::BA0, "BA0", "RG=BA B=0 (RGBA Float only)"},
+                                      });
 
 } // namespace
 
@@ -63,7 +66,7 @@ const auto componentShowMapper =
 #define VIDEOHANDLERRGB_DEBUG_LOADING 0
 #if VIDEOHANDLERRGB_DEBUG_LOADING && !NDEBUG
 #include <QDebug>
-#define DEBUG_RGB qDebug
+#define DEBUG_RGB() qDebug
 #else
 #define DEBUG_RGB(fmt, ...) ((void)0)
 #endif
@@ -90,7 +93,9 @@ std::vector<rgb::PixelFormatRGB> videoHandlerRGB::formatPresetList = {
     PixelFormatRGB(8, DataLayout::Packed, ChannelOrder::RGB, AlphaMode::First),
     PixelFormatRGB(8, DataLayout::Packed, ChannelOrder::BRG),
     PixelFormatRGB(10, DataLayout::Packed, ChannelOrder::BRG),
-    PixelFormatRGB(10, DataLayout::Planar, ChannelOrder::RGB)};
+    PixelFormatRGB(10, DataLayout::Planar, ChannelOrder::RGB),
+    PixelFormatRGB(32, DataLayout::Packed, ChannelOrder::RGB, AlphaMode::Last, Endianness::Little, true)
+    };
 
 videoHandlerRGB::videoHandlerRGB() : videoHandler()
 {
@@ -141,21 +146,37 @@ QStringPairList videoHandlerRGB::getPixelValues(const QPoint &pixelPos,
     rgba_t valueThis  = getPixelValue(pixelPos);
     rgba_t valueOther = rgbItem2->getPixelValue(pixelPos);
 
-    const int     R       = int(valueThis.R) - int(valueOther.R);
-    const int     G       = int(valueThis.G) - int(valueOther.G);
-    const int     B       = int(valueThis.B) - int(valueOther.B);
-    const QString RString = ((R < 0) ? "-" : "") + QString::number(std::abs(R), formatBase);
-    const QString GString = ((G < 0) ? "-" : "") + QString::number(std::abs(G), formatBase);
-    const QString BString = ((B < 0) ? "-" : "") + QString::number(std::abs(B), formatBase);
-
-    values.append(QStringPair("R", RString));
-    values.append(QStringPair("G", GString));
-    values.append(QStringPair("B", BString));
-    if (srcPixelFormat.hasAlpha())
+    if (srcPixelFormat.isFloat())
     {
-      const int     A       = int(valueThis.A) - int(valueOther.A);
-      const QString AString = ((A < 0) ? "-" : "") + QString::number(std::abs(A), formatBase);
-      values.append(QStringPair("A", AString));
+      const float     R       = valueThis.R - valueOther.R;
+      const float     G       = valueThis.G - valueOther.G;
+      const float     B       = valueThis.B - valueOther.B;
+      const float     A       = valueThis.A - valueOther.A;
+      
+      values.append(QStringPair("R", QString::number(R, 'f', 6)));
+      values.append(QStringPair("G", QString::number(G, 'f', 6)));
+      values.append(QStringPair("B", QString::number(B, 'f', 6)));
+      if (srcPixelFormat.hasAlpha())
+        values.append(QStringPair("A", QString::number(A, 'f', 6)));
+    }
+    else
+    {
+      const int     R       = int(valueThis.R) - int(valueOther.R);
+      const int     G       = int(valueThis.G) - int(valueOther.G);
+      const int     B       = int(valueThis.B) - int(valueOther.B);
+      const QString RString = ((R < 0) ? "-" : "") + QString::number(std::abs(R), formatBase);
+      const QString GString = ((G < 0) ? "-" : "") + QString::number(std::abs(G), formatBase);
+      const QString BString = ((B < 0) ? "-" : "") + QString::number(std::abs(B), formatBase);
+
+      values.append(QStringPair("R", RString));
+      values.append(QStringPair("G", GString));
+      values.append(QStringPair("B", BString));
+      if (srcPixelFormat.hasAlpha())
+      {
+        const int     A       = int(valueThis.A) - int(valueOther.A);
+        const QString AString = ((A < 0) ? "-" : "") + QString::number(std::abs(A), formatBase);
+        values.append(QStringPair("A", AString));
+      }
     }
   }
   else
@@ -171,11 +192,22 @@ QStringPairList videoHandlerRGB::getPixelValues(const QPoint &pixelPos,
 
     rgba_t value = getPixelValue(pixelPos);
 
-    values.append(QStringPair("R", QString::number(value.R, formatBase)));
-    values.append(QStringPair("G", QString::number(value.G, formatBase)));
-    values.append(QStringPair("B", QString::number(value.B, formatBase)));
-    if (srcPixelFormat.hasAlpha())
-      values.append(QStringPair("A", QString::number(value.A, formatBase)));
+    if (srcPixelFormat.isFloat())
+    {
+      values.append(QStringPair("R", QString::number(value.R, 'f', 6)));
+      values.append(QStringPair("G", QString::number(value.G, 'f', 6)));
+      values.append(QStringPair("B", QString::number(value.B, 'f', 6)));
+      if (srcPixelFormat.hasAlpha())
+        values.append(QStringPair("A", QString::number(value.A, 'f', 6)));
+    }
+    else
+    {
+      values.append(QStringPair("R", QString::number((int)value.R, formatBase)));
+      values.append(QStringPair("G", QString::number((int)value.G, formatBase)));
+      values.append(QStringPair("B", QString::number((int)value.B, formatBase)));
+      if (srcPixelFormat.hasAlpha())
+        values.append(QStringPair("A", QString::number((int)value.A, formatBase)));
+    }
   }
 
   return values;
@@ -341,12 +373,19 @@ void videoHandlerRGB::updateControlsForNewPixelFormat()
   {
     std::vector<ComponentDisplayMode> listItems;
     if (hasAlpha)
+    {
       listItems = {ComponentDisplayMode::RGBA,
                    ComponentDisplayMode::RGB,
                    ComponentDisplayMode::R,
                    ComponentDisplayMode::G,
                    ComponentDisplayMode::B,
                    ComponentDisplayMode::A};
+      if (this->srcPixelFormat.isFloat())
+      {
+        listItems.push_back(ComponentDisplayMode::RG0);
+        listItems.push_back(ComponentDisplayMode::BA0);
+      }
+    }
     else
       listItems = {ComponentDisplayMode::RGB,
                    ComponentDisplayMode::R,
@@ -593,8 +632,7 @@ void videoHandlerRGB::convertRGBToImage(const QByteArray &sourceBuffer, QImage &
     return;
   }
 
-  const auto bps = this->srcPixelFormat.getBitsPerSample();
-  if (bps < 8 || bps > 16)
+  if (!this->srcPixelFormat.isValid())
   {
     DEBUG_RGB("Unsupported bit depth. 8-16 bit are supported.");
     return;
@@ -631,13 +669,47 @@ void videoHandlerRGB::convertSourceToRGBA32Bit(const QByteArray &sourceBuffer,
   Q_ASSERT_X(sourceBuffer.size() >= getBytesPerFrame(),
              Q_FUNC_INFO,
              "The source buffer does not hold enough data.");
+  if (sourceBuffer.size() < getBytesPerFrame()) {
+    qDebug() << "sourceBuffer size=" << sourceBuffer.size() << ", frame size=" << getBytesPerFrame();
+    return;
+  }
 
   const auto outputSupportsAlpha =
       imageFormat == QImage::Format_ARGB32 || imageFormat == QImage::Format_ARGB32_Premultiplied;
   const auto premultiplyAlpha = imageFormat == QImage::Format_ARGB32_Premultiplied;
   const auto inputHasAlpha    = srcPixelFormat.hasAlpha();
 
-  if (this->componentDisplayMode == ComponentDisplayMode::RGB ||
+  if (this->srcPixelFormat.isFloat())
+  {
+    std::array<Channel, 3> destRgb{};
+    if (this->componentDisplayMode == ComponentDisplayMode::R)
+      destRgb = {Channel::Red, Channel::Red, Channel::Red};
+    else if (this->componentDisplayMode == ComponentDisplayMode::G)
+      destRgb = {Channel::Green, Channel::Green, Channel::Green};
+    else if (this->componentDisplayMode == ComponentDisplayMode::B)
+      destRgb = {Channel::Blue, Channel::Blue, Channel::Blue};
+    else if (this->componentDisplayMode == ComponentDisplayMode::A)
+      destRgb = {Channel::Alpha, Channel::Alpha, Channel::Alpha};
+    else if (this->componentDisplayMode == ComponentDisplayMode::RGBA || this->componentDisplayMode == ComponentDisplayMode::RGB)
+      destRgb = {Channel::Red, Channel::Green, Channel::Blue};
+    else if (this->componentDisplayMode == ComponentDisplayMode::RG0)
+      destRgb = {Channel::Red, Channel::Green, Channel::None};
+    else
+    {
+      assert (this->componentDisplayMode == ComponentDisplayMode::BA0);
+      destRgb = {Channel::Blue, Channel::Alpha, Channel::None};
+    }
+    convertRGBFloatToARGB(sourceBuffer,
+                          this->srcPixelFormat,
+                          targetBuffer,
+                          this->frameSize,
+                          this->componentInvert,
+                          this->componentScale,
+                          destRgb
+                          );
+
+  }
+  else if (this->componentDisplayMode == ComponentDisplayMode::RGB ||
       this->componentDisplayMode == ComponentDisplayMode::RGBA)
   {
     const auto convertAlpha = this->componentDisplayMode == ComponentDisplayMode::RGBA &&
@@ -762,43 +834,79 @@ void videoHandlerRGB::drawPixelValues(QPainter *    painter,
         rgba_t valueThis  = getPixelValue(QPoint(x, y));
         rgba_t valueOther = rgbItem2->getPixelValue(QPoint(x, y));
 
-        const int     R       = int(valueThis.R) - int(valueOther.R);
-        const int     G       = int(valueThis.G) - int(valueOther.G);
-        const int     B       = int(valueThis.B) - int(valueOther.B);
-        const int     A       = int(valueThis.A) - int(valueOther.A);
-        const QString RString = ((R < 0) ? "-" : "") + QString::number(std::abs(R), formatBase);
-        const QString GString = ((G < 0) ? "-" : "") + QString::number(std::abs(G), formatBase);
-        const QString BString = ((B < 0) ? "-" : "") + QString::number(std::abs(B), formatBase);
-
-        if (markDifference)
-          painter->setPen((R == 0 && G == 0 && B == 0 && (!srcPixelFormat.hasAlpha() || A == 0))
-                              ? Qt::white
-                              : Qt::black);
+        QString RString, GString, BString, AString;
+        if (srcPixelFormat.isFloat())
+        {
+          const float     R       = valueThis.R - valueOther.R;
+          const float     G       = valueThis.G - valueOther.G;
+          const float     B       = valueThis.B - valueOther.B;
+          const float     A       = valueThis.A - valueOther.A;
+          RString = QString::number(R, 'f', 6);
+          GString = QString::number(G, 'f', 6);
+          BString = QString::number(B, 'f', 6);
+          if (srcPixelFormat.hasAlpha())
+          {
+            AString = QString::number(A, 'f', 6);
+          }
+          if (markDifference)
+            painter->setPen((R == 0 && G == 0 && B == 0 && (!srcPixelFormat.hasAlpha() || A == 0))
+                                ? Qt::white
+                                : Qt::black);
+          else
+            painter->setPen((R < 0 && G < 0 && B < 0) ? Qt::white : Qt::black);
+        }
         else
-          painter->setPen((R < 0 && G < 0 && B < 0) ? Qt::white : Qt::black);
+        {
+          const int     R       = int(valueThis.R) - int(valueOther.R);
+          const int     G       = int(valueThis.G) - int(valueOther.G);
+          const int     B       = int(valueThis.B) - int(valueOther.B);
+          const int     A       = int(valueThis.A) - int(valueOther.A);
+          RString = ((R < 0) ? "-" : "") + QString::number(std::abs(R), formatBase);
+          GString = ((G < 0) ? "-" : "") + QString::number(std::abs(G), formatBase);
+          BString = ((B < 0) ? "-" : "") + QString::number(std::abs(B), formatBase);
+          if (srcPixelFormat.hasAlpha())
+          {
+            AString = ((A < 0) ? "-" : "") + QString::number(std::abs(A), formatBase);
+          }
+          if (markDifference)
+            painter->setPen((R == 0 && G == 0 && B == 0 && (!srcPixelFormat.hasAlpha() || A == 0))
+                                ? Qt::white
+                                : Qt::black);
+          else
+            painter->setPen((R < 0 && G < 0 && B < 0) ? Qt::white : Qt::black);
+        }
 
         if (srcPixelFormat.hasAlpha())
-        {
-          const QString AString = ((A < 0) ? "-" : "") + QString::number(std::abs(A), formatBase);
           valText = QString("R%1\nG%2\nB%3\nA%4").arg(RString, GString, BString, AString);
-        }
         else
           valText = QString("R%1\nG%2\nB%3").arg(RString, GString, BString);
       }
       else
       {
         rgba_t value = getPixelValue(QPoint(x, y));
-        if (srcPixelFormat.hasAlpha())
-          valText = QString("R%1\nG%2\nB%3\nA%4")
-                        .arg(value.R, 0, formatBase)
-                        .arg(value.G, 0, formatBase)
-                        .arg(value.B, 0, formatBase)
-                        .arg(value.A, 0, formatBase);
-        else
+        if (srcPixelFormat.isFloat())
+        {
           valText = QString("R%1\nG%2\nB%3")
-                        .arg(value.R, 0, formatBase)
-                        .arg(value.G, 0, formatBase)
-                        .arg(value.B, 0, formatBase);
+                          .arg(value.R, 0, 'f', 6)
+                          .arg(value.G, 0, 'f', 6)
+                          .arg(value.B, 0, 'f', 6);
+          if (srcPixelFormat.hasAlpha())
+            valText += QString("\nA%1").arg(value.A, 0, 'f', 6);
+        }
+        else
+        {
+          if (srcPixelFormat.hasAlpha())
+            valText = QString("R%1\nG%2\nB%3\nA%4")
+                          .arg((int)value.R, 0, formatBase)
+                          .arg((int)value.G, 0, formatBase)
+                          .arg((int)value.B, 0, formatBase)
+                          .arg((int)value.A, 0, formatBase);
+          else
+            valText = QString("R%1\nG%2\nB%3")
+                          .arg((int)value.R, 0, formatBase)
+                          .arg((int)value.G, 0, formatBase)
+                          .arg((int)value.B, 0, formatBase);
+        }
         painter->setPen(
             (value.R < drawWhitLevel && value.G < drawWhitLevel && value.B < drawWhitLevel)
                 ? Qt::white

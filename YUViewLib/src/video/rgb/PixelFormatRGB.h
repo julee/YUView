@@ -37,6 +37,7 @@
 #include <video/PixelFormat.h>
 
 #include <string>
+#include <cmath>
 
 namespace video::rgb
 {
@@ -46,14 +47,15 @@ enum class Channel
   Red,
   Green,
   Blue,
-  Alpha
+  Alpha,
+  None
 };
 
 struct rgba_t
 {
-  unsigned R{0}, G{0}, B{0}, A{0};
+  float R{0}, G{0}, B{0}, A{0};
 
-  unsigned &operator[](const Channel channel)
+  float &operator[](const Channel channel)
   {
     if (channel == Channel::Red)
       return this->R;
@@ -67,7 +69,7 @@ struct rgba_t
     throw std::out_of_range("Unsupported channel for value access");
   }
 
-  unsigned at(const Channel channel) const
+  float at(const Channel channel) const
   {
     if (channel == Channel::Red)
       return this->R;
@@ -81,15 +83,18 @@ struct rgba_t
     throw std::out_of_range("Unsupported channel for value access");
   }
 
-  bool operator==(const rgba_t &other) const
-  {
-    return this->R == other.R && this->G == other.G && this->B == other.B && this->A == other.A;
-  };
+  static constexpr float EPSILON = 1e-5f;
 
-  bool operator!=(const rgba_t &other) const
-  {
-    return this->R != other.R || this->G != other.G || this->B != other.B || this->A != other.A;
-  };
+  bool operator==(const rgba_t &other) const {
+      return std::fabs(this->R - other.R) < EPSILON &&
+              std::fabs(this->G - other.G) < EPSILON &&
+              std::fabs(this->B - other.B) < EPSILON &&
+              std::fabs(this->A - other.A) < EPSILON;
+  }
+
+  bool operator!=(const rgba_t &other) const {
+      return !(*this == other);
+  }
 };
 
 enum class ChannelOrder
@@ -131,7 +136,8 @@ public:
                  DataLayout   dataLayout,
                  ChannelOrder channelOrder,
                  AlphaMode    alphaMode  = AlphaMode::None,
-                 Endianness   endianness = Endianness::Little);
+                 Endianness   endianness = Endianness::Little,
+                 bool         floatType = false);
 
   bool        isValid() const;
   unsigned    nrChannels() const;
@@ -142,6 +148,7 @@ public:
   DataLayout   getDataLayout() const { return this->dataLayout; }
   ChannelOrder getChannelOrder() const { return this->channelOrder; }
   Endianness   getEndianess() const { return this->endianness; }
+  bool         isFloat() const { return this->floatType; }
 
   void setBitsPerSample(unsigned bitsPerSample) { this->bitsPerSample = bitsPerSample; }
   void setDataLayout(DataLayout dataLayout) { this->dataLayout = dataLayout; }
@@ -161,6 +168,7 @@ private:
   ChannelOrder channelOrder{ChannelOrder::RGB};
   AlphaMode    alphaMode{AlphaMode::None};
   Endianness   endianness{Endianness::Little};
+  bool         floatType{false};
 };
 
 } // namespace video::rgb

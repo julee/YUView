@@ -47,7 +47,9 @@ enum class ComponentDisplayMode
   R,
   G,
   B,
-  A
+  A,
+  RG0,
+  BA0,
 };
 
 /** The videoHandlerRGB can be used in any playlistItem to read/display RGB data. A playlistItem

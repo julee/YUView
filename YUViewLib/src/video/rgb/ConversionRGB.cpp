@@ -33,6 +33,8 @@
 #include "ConversionRGB.h"
 
 #include <video/LimitedRangeToFullRange.h>
+#include <cmath>
+#include <cstring>
 
 namespace video::rgb
 {
@@ -201,6 +203,7 @@ rgba_t getPixelValue(const QByteArray &    sourceBuffer,
   const auto offsetToNextValue =
       srcPixelFormat.getDataLayout() == DataLayout::Planar ? 1 : srcPixelFormat.nrChannels();
   const auto offsetPixelPos = frameSize.width * pixelPos.y() + pixelPos.x();
+  assert (bitDepth <= 16);
 
   typedef typename std::conditional<bitDepth == 8, uint8_t *, uint16_t *>::type InValueType;
 
@@ -217,8 +220,47 @@ rgba_t getPixelValue(const QByteArray &    sourceBuffer,
 
     auto src = srcPixel + offset;
     auto val = (unsigned)src[0];
-    if (bitDepth > 8 && srcPixelFormat.getEndianess() == Endianness::Big)
+    if (srcPixelFormat.getEndianess() == Endianness::Big && bitDepth > 8 && bitDepth <= 16) 
       val = swapLowestBytes(val);
+    value[channel] = static_cast<float>(val);
+  }
+
+  return value;
+}
+
+
+template <>
+rgba_t getPixelValue<32>(const QByteArray &    sourceBuffer,
+                     const PixelFormatRGB &srcPixelFormat,
+                     const Size            frameSize,
+                     const QPoint &        pixelPos)
+{
+  const auto offsetToNextValue =
+      srcPixelFormat.getDataLayout() == DataLayout::Planar ? 1 : srcPixelFormat.nrChannels();
+  const auto offsetPixelPos = frameSize.width * pixelPos.y() + pixelPos.x();
+
+  assert (srcPixelFormat.isFloat());
+  using InValueType = float *;
+
+  const auto rawData  = (InValueType)sourceBuffer.data();
+  auto       srcPixel = rawData + offsetPixelPos * offsetToNextValue;
+
+  rgba_t value{};
+  for (auto channel : {Channel::Red, Channel::Green, Channel::Blue, Channel::Alpha})
+  {
+    if (channel == Channel::Alpha && !srcPixelFormat.hasAlpha())
+      continue;
+
+    const auto offset = getOffsetToFirstByteOfComponent(channel, srcPixelFormat, frameSize);
+
+    auto src = srcPixel + offset;
+    float val = src[0];
+    if (srcPixelFormat.getEndianess() == Endianness::Big)
+    {
+      uint8_t *ptr = (uint8_t *)&val;
+      uint8_t data[] = {ptr[3], ptr[2], ptr[1], ptr[0]};
+      memcpy((void *)&val, data, sizeof(val));
+    }
     value[channel] = val;
   }
 
@@ -240,7 +282,7 @@ void convertInputRGBToARGB(const QByteArray &    sourceBuffer,
   const auto bitsPerSample = srcPixelFormat.getBitsPerSample();
   if (bitsPerSample < 8 || bitsPerSample > 16)
     throw std::invalid_argument("Invalid bit depth in pixel format for conversion");
-
+  
   if (bitsPerSample == 8)
     convertRGBToARGB<8>(sourceBuffer,
                         srcPixelFormat,
@@ -302,13 +344,67 @@ rgba_t getPixelValueFromBuffer(const QByteArray &    sourceBuffer,
                                const QPoint &        pixelPos)
 {
   const auto bitsPerSample = srcPixelFormat.getBitsPerSample();
-  if (bitsPerSample < 8 || bitsPerSample > 16)
+  if (bitsPerSample < 8 || (bitsPerSample > 16 && (bitsPerSample != 32 || !srcPixelFormat.isFloat())))
     throw std::invalid_argument("Invalid bit depth in pixel format for conversion");
 
   if (bitsPerSample == 8)
     return getPixelValue<8>(sourceBuffer, srcPixelFormat, frameSize, pixelPos);
+  else if (bitsPerSample == 32)
+    return getPixelValue<32>(sourceBuffer, srcPixelFormat, frameSize, pixelPos);
   else
     return getPixelValue<16>(sourceBuffer, srcPixelFormat, frameSize, pixelPos);
 }
+
+void convertRGBFloatToARGB(const QByteArray &    sourceBuffer,
+                      const PixelFormatRGB &srcPixelFormat,
+                      unsigned char *       targetBuffer,
+                      const Size            frameSize,
+                      const bool            componentInvert[4],
+                      const int             componentScale[4],
+                      std::array<Channel,3> destRgb) {
+  const auto offsetToNextValue =
+      srcPixelFormat.getDataLayout() == DataLayout::Planar ? 1 : srcPixelFormat.nrChannels();
+
+  const auto rawData = (float *)sourceBuffer.data();
+  auto rFromSrc = destRgb[0] != Channel::None ? rawData + getOffsetToFirstByteOfComponent(destRgb[0], srcPixelFormat, frameSize) : nullptr;
+  auto gFromSrc = destRgb[1] != Channel::None ? rawData + getOffsetToFirstByteOfComponent(destRgb[1], srcPixelFormat, frameSize) : nullptr;
+  auto bFromSrc = destRgb[2] != Channel::None ? rawData + getOffsetToFirstByteOfComponent(destRgb[2], srcPixelFormat, frameSize) : nullptr;
+  std::map<Channel, int> channelIndex{{Channel::Red, 0}, {Channel::Green, 1}, {Channel::Blue, 2}, {Channel::Alpha, 3}, {Channel::None, -1}};
+  auto rIndex = channelIndex[destRgb[0]];
+  auto gIndex = channelIndex[destRgb[1]];
+  auto bIndex = channelIndex[destRgb[2]];
+
+  const auto isBigEndian  = srcPixelFormat.getEndianess() == Endianness::Big;
+  auto       convertValue = [&isBigEndian](
+                          const float *sourceData, const int scale, const bool invert) {
+    float fValue = sourceData[0];
+    if (isBigEndian)
+    {
+      const uint8_t *ptr = reinterpret_cast<const uint8_t *>(sourceData);
+      uint8_t data[4] = {ptr[3], ptr[2], ptr[1], ptr[0]};
+      memcpy((uint8_t *)&fValue, data, sizeof(float));
+    }
+    int value = (int)std::round(fValue * scale * 255.0f);
+    value = functions::clip(value, 0, 255);
+    if (invert)
+      value = 255 - value;
+    return value;
+  };
+  for (unsigned i = 0; i < frameSize.width * frameSize.height; i++)
+  { 
+    targetBuffer[0] = rFromSrc != nullptr ? convertValue(rFromSrc, componentScale[rIndex], componentInvert[rIndex]) : 0;
+    targetBuffer[1] = gFromSrc != nullptr ? convertValue(gFromSrc, componentScale[gIndex], componentInvert[gIndex]) : 0;
+    targetBuffer[2] = bFromSrc != nullptr ? convertValue(bFromSrc, componentScale[bIndex], componentInvert[bIndex]) : 0;
+    targetBuffer[3] = 255;
+    targetBuffer += 4;
+    if (rFromSrc != nullptr)
+      rFromSrc += offsetToNextValue;
+    if (gFromSrc != nullptr)
+      gFromSrc += offsetToNextValue;
+    if (bFromSrc != nullptr)
+      bFromSrc += offsetToNextValue;
+  }
+}
+
 
 } // namespace video::rgb

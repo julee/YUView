@@ -68,6 +68,7 @@ videoHandlerRGBCustomFormatDialog::videoHandlerRGBCustomFormatDialog(
   this->ui.comboBoxEndianness->setCurrentIndex(rgbFormat.getEndianess() == Endianness::Big ? 0 : 1);
 
   this->ui.planarCheckBox->setChecked(rgbFormat.getDataLayout() == DataLayout::Planar);
+  this->ui.floatCheckBox->setChecked(rgbFormat.isFloat());
 }
 
 PixelFormatRGB videoHandlerRGBCustomFormatDialog::getSelectedRGBFormat() const
@@ -84,6 +85,10 @@ PixelFormatRGB videoHandlerRGBCustomFormatDialog::getSelectedRGBFormat() const
   auto dataLayout = DataLayout::Packed;
   if (this->ui.planarCheckBox->checkState() == Qt::Checked)
     dataLayout = DataLayout::Planar;
+  
+  bool isFloat = false;
+  if (this->ui.floatCheckBox->checkState() == Qt::Checked)
+    isFloat = true;
 
   auto alphaMode = AlphaMode::None;
   if (this->ui.alphaChannelGroupBox->isChecked())
@@ -98,7 +103,7 @@ PixelFormatRGB videoHandlerRGBCustomFormatDialog::getSelectedRGBFormat() const
   if (this->ui.comboBoxEndianness->currentIndex() == 0)
     endianness = Endianness::Big;
 
-  return PixelFormatRGB(bitDepth, dataLayout, *channelOrder, alphaMode, endianness);
+  return PixelFormatRGB(bitDepth, dataLayout, *channelOrder, alphaMode, endianness, isFloat);
 }
 
 void videoHandlerRGBCustomFormatDialog::on_bitDepthSpinBox_valueChanged(int value)

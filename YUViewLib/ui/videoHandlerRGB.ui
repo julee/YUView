@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>259</width>
-    <height>266</height>
+    <height>283</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -127,6 +127,12 @@
           <property name="minimum">
            <number>0</number>
           </property>
+          <property name="maximum">
+           <number>255</number>
+          </property>
+          <property name="value">
+           <number>1</number>
+          </property>
          </widget>
         </item>
         <item row="1" column="1">
@@ -136,6 +142,12 @@
           </property>
           <property name="minimum">
            <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>255</number>
+          </property>
+          <property name="value">
+           <number>1</number>
           </property>
          </widget>
         </item>
@@ -159,6 +171,12 @@
           </property>
           <property name="minimum">
            <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>255</number>
+          </property>
+          <property name="value">
+           <number>1</number>
           </property>
          </widget>
         </item>
@@ -193,6 +211,12 @@
          <widget class="QSpinBox" name="AScaleSpinBox">
           <property name="toolTip">
            <string>Scale every value in the alpha channel with this factor</string>
+          </property>
+          <property name="minimum">
+           <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>255</number>
           </property>
           <property name="value">
            <number>1</number>
