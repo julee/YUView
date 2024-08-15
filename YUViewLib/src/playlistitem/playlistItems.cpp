@@ -52,23 +52,24 @@ namespace
 playlistItem *openImageFileOrSequence(QWidget *parent, const QString &fileName)
 {
   bool openAsImageSequence = false;
-  if (playlistItemImageFileSequence::isImageSequence(fileName))
-  {
-    // This is not only one image, but a sequence of images. Ask the user how to open it.
-    QMessageBox::StandardButton choice = QMessageBox::question(
-        parent,
-        "Open image sequence",
-        "This image can be opened as an image sequence. Do you want to open it as an image "
-        "sequence (Yes) or as a single static image (No)?\n",
-        QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
-        QMessageBox::Yes);
-    if (choice == QMessageBox::Yes)
-      openAsImageSequence = true;
-    else if (choice == QMessageBox::No)
-      openAsImageSequence = false;
-    else
-      return nullptr;
-  }
+  // BUG: playlistItemImageFileSequence::video not init, cause crash. DISABLE it
+  // if (playlistItemImageFileSequence::isImageSequence(fileName))
+  // {
+  //   // This is not only one image, but a sequence of images. Ask the user how to open it.
+  //   QMessageBox::StandardButton choice = QMessageBox::question(
+  //       parent,
+  //       "Open image sequence",
+  //       "This image can be opened as an image sequence. Do you want to open it as an image "
+  //       "sequence (Yes) or as a single static image (No)?\n",
+  //       QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+  //       QMessageBox::Yes);
+  //   if (choice == QMessageBox::Yes)
+  //     openAsImageSequence = true;
+  //   else if (choice == QMessageBox::No)
+  //     openAsImageSequence = false;
+  //   else
+  //     return nullptr;
+  // }
 
   if (openAsImageSequence)
     return new playlistItemImageFileSequence(fileName);
