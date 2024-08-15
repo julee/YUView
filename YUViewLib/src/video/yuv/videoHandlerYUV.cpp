@@ -105,7 +105,7 @@ template <typename T> double computeMSE(T ptr, T ptr2, int numPixels)
   uint64_t sad = 0;
   for (int i = 0; i < numPixels; i++)
   {
-    int diff = (int)ptr[i] - (int)ptr2[i];
+    int64_t diff = (int)ptr[i] - (int)ptr2[i];
     sad += diff * diff;
   }
 
@@ -3331,9 +3331,13 @@ void videoHandlerYUV::setFormatFromCorrelation(const QByteArray &rawYUVData, int
     int bits = (b == 0) ? 8 : (b == 1) ? 10 : 16;
     // Test all subsampling modes
     for (const auto &subsampling : SubsamplingMapper.getEnums())
+    {
+      if (subsampling != Subsampling::YUV_420)
+        continue;
       for (const auto &size : testSizes)
         formatList.push_back(
             testFormatAndSize(size, PixelFormatYUV(subsampling, bits, PlaneOrder::YUV)));
+    }
   }
 
   if (fileSize > 0)
