@@ -172,9 +172,9 @@ MainWindow::MainWindow(bool useAlternativeSources, QWidget *parent) : QMainWindo
   {
     // load geometry and active dockable widgets from user preferences
     restoreGeometry(settings.value("mainWindow/geometry").toByteArray());
-    restoreState(settings.value("mainWindow/windowState").toByteArray(), QT_VERSION);
+    // restoreState(settings.value("mainWindow/windowState").toByteArray(), QT_VERSION);
     separateViewWindow.restoreGeometry(settings.value("separateViewWindow/geometry").toByteArray());
-    separateViewWindow.restoreState(settings.value("separateViewWindow/windowState").toByteArray(), QT_VERSION);
+    // separateViewWindow.restoreState(settings.value("separateViewWindow/windowState").toByteArray(), QT_VERSION);
   }
 
   connect(ui.openButton, &QPushButton::clicked, this, &MainWindow::showFileOpenDialog);
