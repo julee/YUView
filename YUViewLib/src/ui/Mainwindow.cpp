@@ -200,18 +200,18 @@ MainWindow::MainWindow(bool useAlternativeSources, QWidget *parent) : QMainWindo
 
   if (ui.playlistTreeWidget->isAutosaveAvailable())
   {
-    QMessageBox::StandardButton resBtn =
-        QMessageBox::question(this,
-                              "Restore Playlist",
-                              tr("It looks like YUView crashed the last time you used it. We are "
-                                 "sorry about that. However, we have an autosave of the playlist "
-                                 "you were working with. Do you want to restore this playlist?\n"),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No);
-    if (resBtn == QMessageBox::Yes)
-      ui.playlistTreeWidget->loadAutosavedPlaylist();
-    else
-      ui.playlistTreeWidget->dropAutosavedPlaylist();
+    // QMessageBox::StandardButton resBtn =
+    //     QMessageBox::question(this,
+    //                           "Restore Playlist",
+    //                           tr("It looks like YUView crashed the last time you used it. We are "
+    //                              "sorry about that. However, we have an autosave of the playlist "
+    //                              "you were working with. Do you want to restore this playlist?\n"),
+    //                           QMessageBox::Yes | QMessageBox::No,
+    //                           QMessageBox::No);
+    // if (resBtn == QMessageBox::Yes)
+    //   ui.playlistTreeWidget->loadAutosavedPlaylist();
+    // else
+    ui.playlistTreeWidget->dropAutosavedPlaylist();
   }
   // Start the timer now (and not in the constructor of rht playlistTreeWidget) so that the autosave
   // is not accidetly overwritten.
